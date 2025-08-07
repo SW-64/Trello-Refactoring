@@ -7,7 +7,7 @@
 - 팀원 구성
 - 개발 기간
 - 개발 환경
-- API 명세서 및 ERD 와이어 프레임
+- ERD 및 와이어 프레임
 - 파일 구조
 - 나의 역할
 - 주요 기능 및 설명
@@ -37,9 +37,7 @@
 - Tool : Visual Studio Code, Insomnia, DBeaver, Swagger
 
 ---
-## API 명세서 및 ERD 와이어 프레임
-- API 명세서 
-![image](https://github.com/user-attachments/assets/e5ebabd4-19b2-40d4-9216-96a8dc7443c4)
+## ERD  및 와이어 프레임
 
 
 - ERD 
@@ -270,142 +268,24 @@ Bucket	= 순위 고갈 시, 무중단 재정렬을 위한 공간 분리
 <br />FixedKey =	기본적인 순서 결정 키 (고정 길이)
 <br />VariableKey =	FixedKey가 고갈됐을 때 사용하는 가변 키 (길이 확장 가능)
 <br />
-### 정리
-LexoRank는 드래그 앤드 드롭 기반 정렬에서, 빠르고 안정적으로 순서를 유지하면서도 시스템 중단 없이 유연하게 대응할 수 있는 뛰어난 정렬 알고리즘
-<br /> LINE 내부에서는 실제 라이브러리로 구현
 
 
 
 ### 코드 내부
 
 
-#### 카드가 빈 리스트로 이동 시
-```
-// 이동할 아이템에 새로 할당할 lexoRank 정의
-      let lexoRank: LexoRank;
-// 카드가 빈 리스트로 이동할때
-      const existedCard = await queryRunner.manager.findOneBy(Card, { listId: listId });
-      if (!beforeId && !afterId && !existedCard) {
-        lexoRank = LexoRank.middle();
-        await queryRunner.manager.update(Card, cardId, {
-          listId: listId,
-          lexoRank: lexoRank.toString(),
-        });
-        await queryRunner.commitTransaction(); // 트랜잭션 커밋
-        return true;
-      }
-```
-#### 카드가 다른 리스트로 이동 시
-```
-// 이동할 위치에 따른 LexoRank값 할당
-      // 1. 맨 처음-> 첫번째 위치한 카드의 LexoRank값에서 genPrev()를 이용해 더 작은 LexoRank값을 할당
-      if (!beforeCard) lexoRank = afterCardLexoRank.genPrev();
-      // 2. 맨 끝  -> 마지막에 위치한 카드의 LexoRank값에서 genNext()를 이용해 더 큰 LexoRank값을 할당
-      else if (!afterCard) lexoRank = beforeCardLexoRank.genNext();
-      // 3. 두 카드 사이 ->  between()을 이용해서 두 카드의 LexoRank값들의 사이값인 LexoRank값을 할당
-      else lexoRank = beforeCardLexoRank.between(afterCardLexoRank);
+<img width="759" height="350" alt="Image" src="https://github.com/user-attachments/assets/a841e88c-ccfe-4301-a7ec-619346686cb9" />
 
-      // 선택한 리스트와 변경된 lexoRank값 update하기
-      const updateResult = await queryRunner.manager.update(Card, cardId, {
-        listId: listId,
-        lexoRank: lexoRank.toString(),
-      });
-```
+<img width="758" height="357" alt="Image" src="https://github.com/user-attachments/assets/e8528f30-31f9-4390-93f3-b4a26a237428" />
 
-전체 코드
-```
-// 이동할 아이템에 새로 할당할 lexoRank 정의
-      let lexoRank: LexoRank;
-
-      // 해당 리스트가 없을때 false 반환
-      const existedList = await queryRunner.manager.findOneBy(List, { id: listId });
-      if (!existedList) throw new NotFoundException('해당 리스트가 없습니다.');
-
-      // 카드가 빈 리스트로 이동할때
-      const existedCard = await queryRunner.manager.findOneBy(Card, { listId: listId });
-      if (!beforeId && !afterId && !existedCard) {
-        lexoRank = LexoRank.middle();
-        await queryRunner.manager.update(Card, cardId, {
-          listId: listId,
-          lexoRank: lexoRank.toString(),
-        });
-        await queryRunner.commitTransaction(); // 트랜잭션 커밋
-        return true;
-      }
-      // beforeId, afterId 중 최소 1개는 있어야 한다. 둘 다 없다면 false 반환
-      // beforecard가 Null 이라면 첫번재 순서
-      // aftercard가 Null 이라면 마지막 순서
-      else if (!beforeId && !afterId) throw new NotFoundException('beforeId, afterId 중 1개를 입력해주세요');
-
-      // Id값으로 이동 했을때 전과 후의 카드 찾기
-      const beforeCard = beforeId ? await queryRunner.manager.findOneBy(Card, { id: beforeId }) : null; // ex) 6번 리스트를 2번과 3번 사이로 이동시킨다면 2번 리스트
-      const afterCard = afterId ? await queryRunner.manager.findOneBy(Card, { id: afterId }) : null; // ex) 6번 리스트를 2번과 3번 사이로 이동시킨다면 3번 리스트
-
-      // 해당 리스트 안에, 해당 카드가 없다면 false 반환
-      // beforeId 혹은 afterId가 Null값을 줄 수 있는 경우를 제외해야한다.
-      // 의도적으로 Null값을 줄 수는 있지만, 리스트 id에 맞게 찾았을때 카드가 null값이 나오면 안된다.
-      if (afterId != null || beforeId != null) {
-        const existedBeforeCard = beforeId
-          ? await queryRunner.manager.findOneBy(Card, { id: beforeId, listId: listId })
-          : null;
-        const existedAfterCard = afterId
-          ? await queryRunner.manager.findOneBy(Card, { id: afterId, listId: listId })
-          : null;
-        if ((beforeId && !existedBeforeCard) || (afterId && !existedAfterCard))
-          throw new NotFoundException('해당 리스트에 해당 카드가 없습니다.');
-      }
-
-      // 이전과 이후 카드의 lexoRank 값
-      const beforeCardLexoRank = beforeCard ? LexoRank.parse(beforeCard.lexoRank) : null;
-      const afterCardLexoRank = afterCard ? LexoRank.parse(afterCard.lexoRank) : null;
-
-      // 유효성 검사 끝
-
-      // 카드 변경 로직
-
-      // 이동할 위치에 따른 LexoRank값 할당
-      // 1. 맨 처음-> 첫번째 위치한 카드의 LexoRank값에서 genPrev()를 이용해 더 작은 LexoRank값을 할당
-      if (!beforeCard) lexoRank = afterCardLexoRank.genPrev();
-      // 2. 맨 끝  -> 마지막에 위치한 카드의 LexoRank값에서 genNext()를 이용해 더 큰 LexoRank값을 할당
-      else if (!afterCard) lexoRank = beforeCardLexoRank.genNext();
-      // 3. 두 카드 사이 ->  between()을 이용해서 두 카드의 LexoRank값들의 사이값인 LexoRank값을 할당
-      else lexoRank = beforeCardLexoRank.between(afterCardLexoRank);
-
-      // 선택한 리스트와 변경된 lexoRank값 update하기
-      const updateResult = await queryRunner.manager.update(Card, cardId, {
-        listId: listId,
-        lexoRank: lexoRank.toString(),
-      });
-      console.log(updateResult);
-      if (updateResult.affected === 0) {
-        throw new Error('카드 업데이트에 실패했습니다.');
-      }
-
-      // console.log('updateResult', updateResult);
-      await queryRunner.commitTransaction(); // 트랜잭션 커밋
-
-      // 업데이트된 카드 정보 반환
-      const updatedCard = await this.cardRepository.findOne({ where: { id: cardId } });
-      if (!updatedCard) {
-        throw new NotFoundException('업데이트 된 카드를 찾을 수 없습니다.');
-      }
-      console.log(updatedCard);
-      // await queryRunner.manager.save(updateResult);
-      // return updatedCard;
-      return true;
-      // await this.findAll();
-    } catch (e) {
-      await queryRunner.rollbackTransaction();
-      throw e;
-    } finally {
-      await queryRunner.release();
-    }
-```
+<img width="759" height="371" alt="Image" src="https://github.com/user-attachments/assets/729304e5-47bc-403c-961b-446582b788e1" />
 
 
 
 
-
+### 정리
+LexoRank는 드래그 앤드 드롭 기반 정렬에서, 빠르고 안정적으로 순서를 유지하면서도 시스템 중단 없이 유연하게 대응할 수 있는 뛰어난 정렬 알고리즘
+<br /> LINE 내부에서는 실제 라이브러리로 구현
 
 
 
