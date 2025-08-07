@@ -29,7 +29,7 @@
 - 팀원 : 유승엽 [@seungyeopyoo](https://github.com/seungyeopyoo)
 
 ##  개발 기간
-2024.07.11 ~ 2024.07.17
+### 2024.07.11 ~ 2024.07.17
 --- 
 ##  개발 환경
 - 운영체제 : Window/Mac
